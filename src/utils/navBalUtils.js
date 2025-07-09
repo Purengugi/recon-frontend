@@ -51,24 +51,48 @@ export const navBalService = {
   // ✅ Get all NavBals
   async fetchAll() {
     try {
-      const response = await fetch('http://102.217.125.3:8088/api/navbal/all/getAllNavBals?page=0&size=10&sortBy=nbId');
+      console.log('Attempting to fetch data from API...');
+      const response = await fetch('http://102.217.125.3:8088/api/navbal/getAllNavBals?page=0&size=10&sortBy=nbId');
+      
+      console.log('Response status:', response.status);
+      console.log('Response OK:', response.ok);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('API data received:', data);
         return data.map(item => ({
           ...item,
           status: item.status || 'Active'
         }));
+      } else {
+        console.error('API returned error status:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        // Return the sample data for now so the app doesn't break
+        return [
+          {
+            nbId: 1,
+            nbCustId: 10829,
+            nbNavBal: 0,
+            nbBillBal: 0,
+            nbPdId: 101,
+            nbClientId: 10822,
+            nbDate: "2025-06-23T00:00:00",
+            status: 'Active'
+          }
+        ];
       }
-      throw new Error('Failed to fetch data');
     } catch (error) {
       console.error('Error fetching data:', error);
+      // Return sample data so the app doesn't break
       return [
         {
-          nbCustId: 12345,
-          nbNavBal: 100000.50,
-          nbBillBal: 50000.25,
-          nbPdId: 67890,
-          nbClientId: 54321,
+          nbId: 1,
+          nbCustId: 10829,
+          nbNavBal: 0,
+          nbBillBal: 0,
+          nbPdId: 101,
+          nbClientId: 10822,
           nbDate: "2025-06-23T00:00:00",
           status: 'Active'
         }
@@ -79,11 +103,21 @@ export const navBalService = {
   // ✅ Get by ID
   async fetchById(id) {
     try {
-       const response = await fetch('http://102.217.125.3:8088/api/navbal/getNavBalById?id=1');
+      console.log(`Fetching record with ID: ${id}`);
+      const response = await fetch(`http://102.217.125.3:8088/api/navbal/getNavBalById?id=${id}`);
+      
+      console.log('Response status:', response.status);
+      console.log('Response OK:', response.ok);
+      
       if (response.ok) {
-        return await response.json();
+        const data = await response.json();
+        console.log('API data received:', data);
+        return data;
       } else {
-        throw new Error('Failed to fetch record');
+        console.error('API returned error status:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to fetch record with ID ${id}`);
       }
     } catch (error) {
       console.error(`Error fetching item by ID ${id}:`, error);
@@ -94,9 +128,20 @@ export const navBalService = {
   // ✅ Delete by ID
   async delete(id) {
     try {
-      const response = await fetch('http://102.217.125.3:8088/api/navbal/deleteNavBal?id=1', {
-        method: 'DELETE'
+      console.log(`Deleting record with ID: ${id}`);
+      
+      const response = await fetch(`http://102.217.125.3:8088/api/navbal/deleteNavBal?id=${id}`, {
+        method: 'POST'  
       });
+      
+      console.log('Delete response status:', response.status);
+      console.log('Delete response OK:', response.ok);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Delete error response:', errorText);
+      }
+      
       return response.ok;
     } catch (error) {
       console.error('Error deleting item:', error);
@@ -107,23 +152,93 @@ export const navBalService = {
   // ✅ Create new NavBal
   async create(data) {
     try {
-      const response = await fetch('http://102.217.125.3:8088/api/navbal/createNavBal', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...data,
-          nbCustId: parseInt(data.nbCustId),
-          nbNavBal: parseFloat(data.nbNavBal),
-          nbBillBal: parseFloat(data.nbBillBal),
-          nbPdId: parseInt(data.nbPdId),
-          nbClientId: parseInt(data.nbClientId)
-        })
-      });
-      return response.ok;
+      console.log('Creating new record with data:', data);
+      const payload = {
+        ...data,
+        nbCustId: parseInt(data.nbCustId),
+        nbNavBal: parseFloat(data.nbNavBal),
+        nbBillBal: parseFloat(data.nbBillBal),
+        nbPdId: parseInt(data.nbPdId),
+        nbClientId: parseInt(data.nbClientId)
+      };
+      
+      console.log('Payload being sent:', payload);
+      
+      
+      const methods = ['POST', 'PUT'];
+      
+      for (const method of methods) {
+        console.log(`Trying ${method} method...`);
+        const response = await fetch('http://102.217.125.3:8088/api/navbal/createNavBal', {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        console.log(`${method} response status:`, response.status);
+        console.log(`${method} response OK:`, response.ok);
+        
+        if (response.ok) {
+          return true;
+        } else if (response.status !== 405) {
+          
+          const errorText = await response.text();
+          console.error(`${method} error response:`, errorText);
+        }
+      }
+      
+      return false;
     } catch (error) {
       console.error('Error creating data:', error);
+      return false;
+    }
+  },
+
+  
+  async update(id, data) {
+    try {
+      console.log(`Updating record with ID: ${id}`, data);
+      const payload = {
+        ...data,
+        nbCustId: parseInt(data.nbCustId),
+        nbNavBal: parseFloat(data.nbNavBal),
+        nbBillBal: parseFloat(data.nbBillBal),
+        nbPdId: parseInt(data.nbPdId),
+        nbClientId: parseInt(data.nbClientId)
+      };
+      
+      console.log('Update payload being sent:', payload);
+      
+      
+      const methods = ['PUT', 'POST'];
+      
+      for (const method of methods) {
+        console.log(`Trying ${method} method for update...`);
+        const response = await fetch(`http://102.217.125.3:8088/api/navbal/updateNavBal?id=${id}`, {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        console.log(`${method} update response status:`, response.status);
+        console.log(`${method} update response OK:`, response.ok);
+        
+        if (response.ok) {
+          return true;
+        } else if (response.status !== 405) {
+          
+          const errorText = await response.text();
+          console.error(`${method} update error response:`, errorText);
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error updating data:', error);
       return false;
     }
   }
