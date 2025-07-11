@@ -50,24 +50,27 @@ export const navBalService = {
 
   // ✅ Get all NavBals
   async fetchAll() {
-    try {
-      console.log('Attempting to fetch data from API...');
-      const response = await fetch('http://102.217.125.3:8088/api/navbal/getAllNavBals?page=0&size=10&sortBy=nbId');
-      
-      console.log('Response status:', response.status);
-      console.log('Response OK:', response.ok);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('API data received:', data);
-        return data.map(item => ({
-          ...item,
-          status: item.status || 'Active'
-        }));
-      } else {
-        console.error('API returned error status:', response.status);
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
+  try {
+    console.log('Attempting to fetch data from API...');
+    const response = await fetch('http://102.217.125.3:8088/api/navbal/getAllNavBals?page=0&size=10&sortBy=nbId');
+    
+    console.log('Response status:', response.status);
+    console.log('Response OK:', response.ok);
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('API data received:', result);
+
+      // Access the actual list from result.content
+      const data = result.content || [];
+      return data.map(item => ({
+        ...item,
+        status: item.status || 'Active'
+      }));
+    } else {
+      console.error('API returned error status:', response.status);
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
         // Return the sample data for now so the app doesn't break
         return [
           {
@@ -131,7 +134,7 @@ export const navBalService = {
       console.log(`Deleting record with ID: ${id}`);
       
       const response = await fetch(`http://102.217.125.3:8088/api/navbal/deleteNavBal?id=${id}`, {
-        method: 'POST'  
+        method: 'DELETE'  
       });
       
       console.log('Delete response status:', response.status);

@@ -102,19 +102,12 @@ const NavBalTable = () => {
           fetchNavBalData();
         }
       } else if (modalType === 'edit') {
-        const updatedData = navBalData.map(item =>
-          item.nbCustId === selectedItem.nbCustId ? {
-            ...formData,
-            nbCustId: parseInt(formData.nbCustId),
-            nbNavBal: parseFloat(formData.nbNavBal),
-            nbBillBal: parseFloat(formData.nbBillBal),
-            nbPdId: parseInt(formData.nbPdId),
-            nbClientId: parseInt(formData.nbClientId)
-          } : item
-        );
-        setNavBalData(updatedData);
-      } else if (modalType === 'delete') {
-        const success = await navBalService.delete(selectedItem.nbCustId);
+  const success = await navBalService.update(selectedItem.nbId, formData);
+  if (success) {
+    fetchNavBalData();
+  }
+}else if (modalType === 'delete') {
+        const success = await navBalService.delete(selectedItem.nbId);
         if (success) {
           fetchNavBalData();
         } else {
@@ -122,8 +115,12 @@ const NavBalTable = () => {
           setNavBalData(updatedData);
         }
       } else if (modalType === 'removeAll') {
-        setNavBalData([]);
-      }
+  for (const item of navBalData) {
+    await navBalService.delete(item.nbId); // ✅ use nbId!
+  }
+  fetchNavBalData();
+}
+
       closeModal();
     } catch (error) {
       console.error('Error handling submit:', error);
@@ -179,52 +176,51 @@ const NavBalTable = () => {
         />
       </div>
 
-      <style jsx>{`
-        @import url('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css');
-        
-        .table-hover tbody tr:hover {
-          background-color: rgba(0, 0, 0, 0.025);
-        }
-        
-        .card {
-          border: none;
-          border-radius: 8px;
-        }
-        
-        .btn {
-          border-radius: 6px;
-        }
-        
-        .badge {
-          font-size: 0.75rem;
-          padding: 0.35rem 0.65rem;
-        }
-        
-        .modal {
-          z-index: 1050;
-        }
-        
-        .modal-dialog {
-          margin: 1.75rem auto;
-        }
-        
-        .btn-close {
-          background: none;
-          border: none;
-          font-size: 1.25rem;
-          font-weight: bold;
-          opacity: 0.5;
-          cursor: pointer;
-        }
-        
-        .btn-close:hover {
-          opacity: 0.8;
-        }
-        
-        .btn-close::before {
-          content: '×';
-        }
-      `}</style>
+      <style>{`
+  .table-hover tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.025);
+  }
+
+  .card {
+    border: none;
+    border-radius: 8px;
+  }
+
+  .btn {
+    border-radius: 6px;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.65rem;
+  }
+
+  .modal {
+    z-index: 1050;
+  }
+
+  .modal-dialog {
+    margin: 1.75rem auto;
+  }
+
+  .btn-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    font-weight: bold;
+    opacity: 0.5;
+    cursor: pointer;
+  }
+
+  .btn-close:hover {
+    opacity: 0.8;
+  }
+
+  .btn-close::before {
+    content: '×';
+  }
+`}</style>
+
     </div>
   );
 };
