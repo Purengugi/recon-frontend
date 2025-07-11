@@ -9,6 +9,7 @@ const NavBalTable = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     nbCustId: '',
@@ -22,8 +23,9 @@ const NavBalTable = () => {
 
   const fetchNavBalData = async () => {
     setLoading(true);
-    const data = await navBalService.fetchAll();
+    const { data, total } = await navBalService.fetchAll();
     setNavBalData(data);
+    setTotalRecords(total);
     setLoading(false);
   };
 

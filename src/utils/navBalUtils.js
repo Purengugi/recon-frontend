@@ -63,10 +63,12 @@ export const navBalService = {
 
       // Access the actual list from result.content
       const data = result.content || [];
-      return data.map(item => ({
-        ...item,
-        status: item.status || 'Active'
-      }));
+const mapped = data.map(item => ({
+  ...item,
+  status: item.status || 'Active'
+}));
+return { data: mapped, total: result.totalElements || 0 };
+
     } else {
       console.error('API returned error status:', response.status);
       const errorText = await response.text();
