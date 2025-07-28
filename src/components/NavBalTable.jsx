@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { SearchBar, DataTable, SummaryStats, Modal } from './NavBalComponents.jsx';
+import { Header, Footer, SearchBar, DataTable, SummaryStats, Modal } from './NavBalComponents.jsx';
 import { navBalService } from '../utils/navBalUtils.js';
+import '../styles.css'; 
 
 const NavBalTable = () => {
   const [navBalData, setNavBalData] = useState([]);
@@ -9,8 +10,10 @@ const NavBalTable = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItems, setSelectedItems] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [nextId, setNextId] = useState(1);
   const [formData, setFormData] = useState({
     nbCustId: '',
     nbNavBal: '',
@@ -22,11 +25,21 @@ const NavBalTable = () => {
   });
 
   const fetchNavBalData = async () => {
-    setLoading(true);
-    const { data, total } = await navBalService.fetchAll();
-    setNavBalData(data);
-    setTotalRecords(total);
-    setLoading(false);
+    try {
+      const { data, total } = await navBalService.fetchAll();
+      setNavBalData(data);
+      setTotalRecords(total);
+     
+      // Set next ID based on existing data
+      if (data.length > 0) {
+        const maxId = Math.max(...data.map(item => item.nbId || item.nbCustId || 0));
+        setNextId(maxId + 1);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -46,9 +59,26 @@ const NavBalTable = () => {
     setSearchTerm(e.target.value);
   };
 
+  const handleSelectItem = (id) => {
+    setSelectedItems(prev =>
+      prev.includes(id)
+        ? prev.filter(item => item !== id)
+        : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedItems.length === filteredData.length) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems(filteredData.map(item => item.nbId || item.nbCustId));
+    }
+  };
+
   const openModal = (type, item = null) => {
     setModalType(type);
     setSelectedItem(item);
+   
     if (type === 'edit' && item) {
       setFormData({
         nbCustId: item.nbCustId,
@@ -99,29 +129,82 @@ const NavBalTable = () => {
   const handleSubmit = async () => {
     try {
       if (modalType === 'add') {
-        const success = await navBalService.create(formData);
-        if (success) {
-          fetchNavBalData();
-        }
-      } else if (modalType === 'edit') {
-  const success = await navBalService.update(selectedItem.nbId, formData);
-  if (success) {
-    fetchNavBalData();
-  }
-}else if (modalType === 'delete') {
-        const success = await navBalService.delete(selectedItem.nbId);
-        if (success) {
-          fetchNavBalData();
-        } else {
-          const updatedData = navBalData.filter(item => item.nbCustId !== selectedItem.nbCustId);
-          setNavBalData(updatedData);
-        }
-      } else if (modalType === 'removeAll') {
-  for (const item of navBalData) {
-    await navBalService.delete(item.nbId); // ✅ use nbId!
-  }
-  fetchNavBalData();
-}
+        // Create new record with local ID
+        const newRecord = {
+          nbId: nextId,
+          nbCustId: parseInt(formData.nbCustId),
+          nbNavBal: parseFloat(formData.nbNavBal) || 0,
+          nbBillBal: parseFloat(formData.nbBillBal) || 0,
+          nbPdId: parseInt(formData.nbPdId),
+          nbClientId: parseInt(formData.nbClientId),
+          nbDate: formData.nbDate,
+          status: formData.status
+        };
+
+        // Update UI immediately
+        setNavBalData(prev => [...prev, newRecord]);
+        setNextId(prev => prev + 1);
+        
+        // Try API in background
+        navBalService.create(formData).catch(error => 
+          console.error('API create failed:', error)
+        );
+      }
+      else if (modalType === 'edit') {
+        const updatedRecord = {
+          ...selectedItem,
+          nbCustId: parseInt(formData.nbCustId),
+          nbNavBal: parseFloat(formData.nbNavBal) || 0,
+          nbBillBal: parseFloat(formData.nbBillBal) || 0,
+          nbPdId: parseInt(formData.nbPdId),
+          nbClientId: parseInt(formData.nbClientId),
+          nbDate: formData.nbDate,
+          status: formData.status
+        };
+
+        // Update UI immediately
+        setNavBalData(prev =>
+          prev.map(item =>
+            (item.nbId || item.nbCustId) === (selectedItem.nbId || selectedItem.nbCustId)
+              ? updatedRecord
+              : item
+          )
+        );
+        
+        // Try API in background
+        navBalService.update(selectedItem.nbId, formData).catch(error => 
+          console.error('API update failed:', error)
+        );
+      }
+      else if (modalType === 'delete') {
+        // Update UI immediately
+        setNavBalData(prev =>
+          prev.filter(item =>
+            (item.nbId || item.nbCustId) !== (selectedItem.nbId || selectedItem.nbCustId)
+          )
+        );
+        
+        // Try API in background
+        navBalService.delete(selectedItem.nbId).catch(error => 
+          console.error('API delete failed:', error)
+        );
+      }
+      else if (modalType === 'deleteSelected') {
+        setNavBalData(prev =>
+          prev.filter(item =>
+            !selectedItems.includes(item.nbId || item.nbCustId)
+          )
+        );
+        
+        // Try API in background for each selected item
+        selectedItems.forEach(itemId => {
+          navBalService.delete(itemId).catch(error => 
+            console.error(`API delete failed for item ${itemId}:`, error)
+          );
+        });
+        
+        setSelectedItems([]);
+      }
 
       closeModal();
     } catch (error) {
@@ -129,100 +212,70 @@ const NavBalTable = () => {
     }
   };
 
+  const handleDeleteSelected = () => {
+    setModalType('deleteSelected');
+    setShowModal(true);
+  };
+
+  // Simple loading 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 d-flex justify-content-center align-items-center">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
+      <div className="main-container">
+        <Header />
+        <main className="main-content">
+          <div className="container-fluid p-4">
+            <div className="text-center py-3">
+              <span className="text-muted">Loading...</span>
+            </div>
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="container-fluid p-4">
-        <SearchBar
-          searchTerm={searchTerm}
-          onSearchChange={handleSearch}
-          onAddClick={() => openModal('add')}
-        />
-
-        <DataTable
-          data={filteredData}
-          onEdit={(item) => openModal('edit', item)}
-          onDelete={(item) => openModal('delete', item)}
-        />
-
-        {filteredData.length > 0 && (
-          <div className="mt-3">
-            <button
-              className="btn btn-danger"
-              onClick={() => openModal('removeAll')}
-            >
-              Remove All
-            </button>
-          </div>
-        )}
-
-        <SummaryStats data={filteredData} />
-
-        <Modal
-          show={showModal}
-          modalType={modalType}
-          formData={formData}
-          selectedItem={selectedItem}
-          onInputChange={handleInputChange}
-          onSubmit={handleSubmit}
-          onClose={closeModal}
-        />
-      </div>
-
-      <style>{`
-  .table-hover tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.025);
-  }
-
-  .card {
-    border: none;
-    border-radius: 8px;
-  }
-
-  .btn {
-    border-radius: 6px;
-  }
-
-  .badge {
-    font-size: 0.75rem;
-    padding: 0.35rem 0.65rem;
-  }
-
-  .modal {
-    z-index: 1050;
-  }
-
-  .modal-dialog {
-    margin: 1.75rem auto;
-  }
-
-  .btn-close {
-    background: none;
-    border: none;
-    font-size: 1.25rem;
-    font-weight: bold;
-    opacity: 0.5;
-    cursor: pointer;
-  }
-
-  .btn-close:hover {
-    opacity: 0.8;
-  }
-
-  .btn-close::before {
-    content: '×';
-  }
-`}</style>
-
+    <div className="main-container">
+      <Header />
+     
+      <main className="main-content">
+        <div className="container-fluid p-4">
+          {/* Summary Stats First */}
+          <SummaryStats data={filteredData} />
+         
+          {/* Search Bar */}
+          <SearchBar
+            searchTerm={searchTerm}
+            onSearchChange={handleSearch}
+            onAddClick={() => openModal('add')}
+          />
+         
+          {/* Data Table */}
+          <DataTable
+            data={filteredData}
+            onEdit={(item) => openModal('edit', item)}
+            onDelete={(item) => openModal('delete', item)}
+            selectedItems={selectedItems}
+            onSelectItem={handleSelectItem}
+            onSelectAll={handleSelectAll}
+            onDeleteSelected={handleDeleteSelected}
+          />
+        </div>
+      </main>
+      
+      <Footer />
+      
+      {/* Modal */}
+      <Modal
+        show={showModal}
+        modalType={modalType}
+        formData={formData}
+        selectedItem={selectedItem}
+        selectedItems={selectedItems}
+        onInputChange={handleInputChange}
+        onSubmit={handleSubmit}
+        onClose={closeModal}
+      />
     </div>
   );
 };

@@ -32,15 +32,22 @@ export const formatDateTimeForInput = (date) => {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   
-  // Return in format YYYY-MM-DDTHH:mm (required by datetime-local input)
+  // Return in format YYYY-MM-DDTHH:mm
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
 export const navBalService = {
-  // ✅ Test connection
+  //Test connection
   async testConnection() {
     try {
-      const response = await fetch('http://102.217.125.3:8088/api/navbal/test');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch('http://102.217.125.3:8088/api/navbal/test', {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       return response.ok ? 'API is up' : 'API not reachable';
     } catch (error) {
       console.error('Error testing connection:', error);
@@ -48,49 +55,47 @@ export const navBalService = {
     }
   },
 
-  // ✅ Get all NavBals
+  //Get all NavBals
   async fetchAll() {
-  try {
-    console.log('Attempting to fetch data from API...');
-    const response = await fetch('http://102.217.125.3:8088/api/navbal/getAllNavBals?page=0&size=10&sortBy=nbId');
-    
-    console.log('Response status:', response.status);
-    console.log('Response OK:', response.ok);
-    
-    if (response.ok) {
-      const result = await response.json();
-      console.log('API data received:', result);
+    try {
+      console.log('Fetching data from API...');
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch('http://102.217.125.3:8088/api/navbal/getAllNavBals?page=0&size=100&sortBy=nbId', {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      console.log('Response received - Status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('API data processed successfully');
 
-      // Access the actual list from result.content
-      const data = result.content || [];
-const mapped = data.map(item => ({
-  ...item,
-  status: item.status || 'Active'
-}));
-return { data: mapped, total: result.totalElements || 0 };
+        const data = result.content || [];
+        const mapped = data.map(item => ({
+          ...item,
+          status: item.status || 'Active'
+        }));
+        return { data: mapped, total: result.totalElements || 0 };
 
-    } else {
-      console.error('API returned error status:', response.status);
-      const errorText = await response.text();
-      console.error('Error response:', errorText);
-        // Return the sample data for now so the app doesn't break
-        return [
-          {
-            nbId: 1,
-            nbCustId: 10829,
-            nbNavBal: 0,
-            nbBillBal: 0,
-            nbPdId: 101,
-            nbClientId: 10822,
-            nbDate: "2025-06-23T00:00:00",
-            status: 'Active'
-          }
-        ];
+      } else {
+        console.log('API error, using sample data');
+        return this.getSampleData();
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
-      // Return sample data so the app doesn't break
-      return [
+      console.log('Network error, using sample data');
+      return this.getSampleData();
+    }
+  },
+
+  // Fast sample data fallback
+  getSampleData() {
+    return {
+      data: [
         {
           nbId: 1,
           nbCustId: 10829,
@@ -100,150 +105,126 @@ return { data: mapped, total: result.totalElements || 0 };
           nbClientId: 10822,
           nbDate: "2025-06-23T00:00:00",
           status: 'Active'
-        }
-      ];
-    }
+        },
+       
+      ],
+      total: 1
+    };
   },
 
-  // ✅ Get by ID
+  //Get by ID
   async fetchById(id) {
     try {
-      console.log(`Fetching record with ID: ${id}`);
-      const response = await fetch(`http://102.217.125.3:8088/api/navbal/getNavBalById?id=${id}`);
+      console.log(`Fetching record ID: ${id}`);
       
-      console.log('Response status:', response.status);
-      console.log('Response OK:', response.ok);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch(`http://102.217.125.3:8088/api/navbal/getNavBalById?id=${id}`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('API data received:', data);
+        console.log('Record fetched successfully');
         return data;
       } else {
-        console.error('API returned error status:', response.status);
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error(`Failed to fetch record with ID ${id}`);
+        console.log(`Record ${id} not found`);
+        return null;
       }
     } catch (error) {
-      console.error(`Error fetching item by ID ${id}:`, error);
+      console.log(`Error fetching record ${id}:`, error.message);
       return null;
     }
   },
 
-  // ✅ Delete by ID
+  //Delete by ID
   async delete(id) {
     try {
-      console.log(`Deleting record with ID: ${id}`);
+      console.log(`Deleting record ID: ${id}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
       
       const response = await fetch(`http://102.217.125.3:8088/api/navbal/deleteNavBal?id=${id}`, {
-        method: 'DELETE'  
+        method: 'DELETE',
+        signal: controller.signal
       });
       
-      console.log('Delete response status:', response.status);
-      console.log('Delete response OK:', response.ok);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Delete error response:', errorText);
-      }
+      clearTimeout(timeoutId);
+      console.log(`Delete ${id} - Status:`, response.status);
       
       return response.ok;
     } catch (error) {
-      console.error('Error deleting item:', error);
+      console.log(`Delete ${id} failed:`, error.message);
       return false;
     }
   },
 
-  // ✅ Create new NavBal
+  //Create new NavBal
   async create(data) {
     try {
-      console.log('Creating new record with data:', data);
+      console.log('Creating record...');
       const payload = {
         ...data,
         nbCustId: parseInt(data.nbCustId),
-        nbNavBal: parseFloat(data.nbNavBal),
-        nbBillBal: parseFloat(data.nbBillBal),
+        nbNavBal: parseFloat(data.nbNavBal) || 0,
+        nbBillBal: parseFloat(data.nbBillBal) || 0,
         nbPdId: parseInt(data.nbPdId),
         nbClientId: parseInt(data.nbClientId)
       };
       
-      console.log('Payload being sent:', payload);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
+      const response = await fetch('http://102.217.125.3:8088/api/navbal/createNavBal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
       
-      const methods = ['POST', 'PUT'];
+      clearTimeout(timeoutId);
+      console.log('Create - Status:', response.status);
       
-      for (const method of methods) {
-        console.log(`Trying ${method} method...`);
-        const response = await fetch('http://102.217.125.3:8088/api/navbal/createNavBal', {
-          method: method,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload)
-        });
-        
-        console.log(`${method} response status:`, response.status);
-        console.log(`${method} response OK:`, response.ok);
-        
-        if (response.ok) {
-          return true;
-        } else if (response.status !== 405) {
-          
-          const errorText = await response.text();
-          console.error(`${method} error response:`, errorText);
-        }
-      }
-      
-      return false;
+      return response.ok;
     } catch (error) {
-      console.error('Error creating data:', error);
+      console.log('Create failed:', error.message);
       return false;
     }
   },
 
-  
+  //Update existing NavBal
   async update(id, data) {
     try {
-      console.log(`Updating record with ID: ${id}`, data);
+      console.log(`Updating record ID: ${id}`);
       const payload = {
         ...data,
         nbCustId: parseInt(data.nbCustId),
-        nbNavBal: parseFloat(data.nbNavBal),
-        nbBillBal: parseFloat(data.nbBillBal),
+        nbNavBal: parseFloat(data.nbNavBal) || 0,
+        nbBillBal: parseFloat(data.nbBillBal) || 0,
         nbPdId: parseInt(data.nbPdId),
         nbClientId: parseInt(data.nbClientId)
       };
       
-      console.log('Update payload being sent:', payload);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
+      const response = await fetch(`http://102.217.125.3:8088/api/navbal/updateNavBal?id=${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
       
-      const methods = ['PUT', 'POST'];
+      clearTimeout(timeoutId);
+      console.log(`Update ${id} - Status:`, response.status);
       
-      for (const method of methods) {
-        console.log(`Trying ${method} method for update...`);
-        const response = await fetch(`http://102.217.125.3:8088/api/navbal/updateNavBal?id=${id}`, {
-          method: method,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload)
-        });
-        
-        console.log(`${method} update response status:`, response.status);
-        console.log(`${method} update response OK:`, response.ok);
-        
-        if (response.ok) {
-          return true;
-        } else if (response.status !== 405) {
-          
-          const errorText = await response.text();
-          console.error(`${method} update error response:`, errorText);
-        }
-      }
-      
-      return false;
+      return response.ok;
     } catch (error) {
-      console.error('Error updating data:', error);
+      console.log(`Update ${id} failed:`, error.message);
       return false;
     }
   }
